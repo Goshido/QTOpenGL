@@ -1,0 +1,14 @@
+#version 130
+precision highp float;
+
+smooth in vec2 v_uv;
+
+uniform sampler2D colorSampler;
+uniform vec4 mappingParams;     // x, y - scale. z, w - offset
+
+out vec4 fragmentColor;
+
+void main()
+{
+    fragmentColor = texture(colorSampler, v_uv * mappingParams.xy + mappingParams.zw);
+}

@@ -1,0 +1,63 @@
+#version 130
+precision highp float;
+
+#define IOR_REMAPPING_FACTOR 5.0
+
+smooth in vec3 v_normalView;
+smooth in vec2 v_uv;
+smooth in vec3 v_velocityView;
+
+uniform sampler2D albedoSampler;
+uniform vec3 albedoColor;
+uniform vec4 albedoScaleOffset;
+
+uniform sampler2D emissionSampler;
+uniform vec3 emissionHDRColor;
+uniform vec4 emissionScaleOffset;
+
+uniform sampler2D cookTorranceParamsSampler;    // x - roughness, y - ior, z - specular intensity, w - metallic
+uniform float rougnessFactor;
+uniform vec4 cookTorranceParamsScaleOffset;
+
+out vec4 albedoTarget;
+out vec4 emissionTarget;
+out vec3 normalTarget;
+out vec4 cookTorranceParamsTarget;
+out vec4 velocityTarget;
+
+vec4 getAlbedo()
+{
+    return vec4(texture(albedoSampler, v_uv * albedoScaleOffset.xy + albedoScaleOffset.zw).rgb * albedoColor, 1.0);
+}
+
+vec4 getEmission()
+{
+    return vec4(texture(emissionSampler, v_uv * emissionScaleOffset.xy + emissionScaleOffset.zw).rgb * emissionHDRColor,
+                0.0f);
+}
+
+vec3 packNormal()
+{
+    return normalize(v_normalView) * 0.5 + 0.5;
+}
+
+vec4 getGetCookTorranceParams()
+{
+    vec4 sample = texture(cookTorranceParamsSampler,
+                          v_uv * cookTorranceParamsScaleOffset.xy + cookTorranceParamsScaleOffset.zw);
+
+    sample.r = sample.r * sample.r * rougnessFactor;
+    sample.g = sample.g * IOR_REMAPPING_FACTOR;
+    sample.a = (sample.a > 0.5) ? 1.0 : 0.0;
+
+    return sample;
+}
+
+void main()
+{
+    albedoTarget = getAlbedo();
+    emissionTarget = getEmission();
+    normalTarget = packNormal();
+    cookTorranceParamsTarget = getGetCookTorranceParams();
+    velocityTarget = vec4(v_velocityView, 0.0);
+}

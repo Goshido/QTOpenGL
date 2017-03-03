@@ -1,0 +1,23 @@
+#version 130
+precision highp float;
+
+in vec3 vertex;
+in vec3 normal;
+
+uniform mat4 current_mod_view_proj_mat;
+uniform mat4 current_mod_view_mat;
+uniform mat4 last_frame_mod_view_mat;
+
+smooth out vec3 v_normalView;
+smooth out vec3 v_velocityView;
+
+void main()
+{
+    vec4 v = vec4(vertex, 1.0);
+    gl_Position = current_mod_view_proj_mat * v;
+    v_normalView = mat3(current_mod_view_mat) * normal;
+
+    vec4 currentLocationView = current_mod_view_mat * v;
+    vec4 lastFrameLocationView = last_frame_mod_view_mat * v;
+    v_velocityView = currentLocationView.xyz - lastFrameLocationView.xyz;
+}

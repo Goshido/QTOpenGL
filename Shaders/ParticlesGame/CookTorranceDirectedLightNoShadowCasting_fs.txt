@@ -1,0 +1,107 @@
+#version 130
+precision highp float;
+
+#define PI 3.141592
+#define INV_PI 0.31830
+#define METALLIC_LIMIT 0.5
+
+smooth in vec2 v_uv;
+
+uniform vec2 invScreenResoluion;
+uniform mat4 inv_proj_mat;
+uniform vec4 colorComponents;       // rgb - albedo, w - intensity
+uniform vec3 hrdColor;
+uniform vec3 invLightDirectionView;
+uniform sampler2D albedoSampler;
+uniform sampler2D emissionSampler;
+uniform sampler2D normalSampler;
+uniform sampler2D cookTorranceSampler;
+uniform sampler2D depthSampler;
+
+out vec4 fragmentColor;
+
+vec3 getFragmentViewDirectionView()
+{
+    vec4 locationCVV;
+    locationCVV.xy = gl_FragCoord.xy * invScreenResoluion * 2.0 - 1.0;
+    locationCVV.z = texture(depthSampler, v_uv).x * 2.0 - 1.0;
+    locationCVV.w = 1.0;
+
+    vec4 locationView = inv_proj_mat * locationCVV;
+    return normalize(-locationView.xyz);
+}
+
+vec3 unpackNormalView()
+{
+    return texture(normalSampler, v_uv).xyz * 2.0 - 1.0;
+}
+
+float ggx(const in float value)
+{
+    return value > 0.0 ? 1.0 : 0.0;
+}
+
+float ggxSchlick(const in vec3 vectorA, const in vec3 vectorB, const in float roughness)
+{
+    float alpha = max(dot(vectorA, vectorB), 0.0);
+    return alpha / (alpha * (1.0 - roughness) + roughness);
+}
+
+float distribution(const in vec3 normalView, const in vec3 halfVectorView, const in float roughness)
+{
+    float alpha = dot(normalView, halfVectorView);
+    float betta = roughness * roughness;
+    float gamma = alpha * alpha;
+    float zeta = alpha * betta + 1.0 - alpha;
+
+    return (betta * ggx(alpha)) / (PI * zeta * zeta);
+}
+
+float geometryAttenuation(const in vec3 viewDirectionView, const in vec3 normalView,
+                          const in vec3 lightDirectionView, const float roughness)
+{
+    return ggxSchlick(normalView, viewDirectionView, roughness) * ggxSchlick(normalView, lightDirectionView, roughness);
+}
+
+float fresnel(const in float ior, const in vec3 normalView, const in vec3 viewDirectionView)
+{
+    float alpha = (1.0 - ior) / (1.0 + ior);
+    float betta = alpha * alpha;
+    float gamma = pow(1.0 - max(dot(normalView, viewDirectionView), 0.0), 5.0);
+
+    return betta + (1.0 - betta) * gamma;
+}
+
+void main()
+{
+    vec3 fragmentViewDirectionView = getFragmentViewDirectionView();
+    vec3 normalView = unpackNormalView();
+    vec3 halfVectorView = normalize(invLightDirectionView + fragmentViewDirectionView);
+
+    vec3 albedo = texture(albedoSampler, v_uv).rgb;
+    vec3 emission = texture(emissionSampler, v_uv).rgb;
+    vec4 cookTorranceSample = texture(cookTorranceSampler, v_uv);
+    float roughness = cookTorranceSample.x;
+    float ior = cookTorranceSample.y;
+    float specularIntensity = cookTorranceSample.z;
+    float metallic = cookTorranceSample.w;
+
+    float d = distribution(normalView, halfVectorView, roughness);
+    float f = fresnel(ior, normalView, fragmentViewDirectionView);
+    float ga = geometryAttenuation(fragmentViewDirectionView, normalView, invLightDirectionView, roughness);
+    float alpha = dot(normalView, invLightDirectionView);
+    float betta = dot(normalView, fragmentViewDirectionView);
+
+    vec3 specularColor;
+    if (metallic < METALLIC_LIMIT) {
+        specularColor = colorComponents.rgb;
+    } else {
+        specularColor = albedo;
+    }
+
+    vec3 diffuse = hrdColor * INV_PI * (1.0 - specularIntensity) * albedo
+                   * max(dot(normalView, invLightDirectionView), 0.0);
+    vec3 specular = specularColor * colorComponents.w * specularIntensity * (d * f * ga) / (4.0 * alpha * betta);
+
+    fragmentColor = vec4(diffuse + specular, 1.0f);
+}

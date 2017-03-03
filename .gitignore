@@ -1,0 +1,18 @@
+Textures/System/Cache
+
+3D Models/ParticlesGame/Cache
+3D Models/ParticlesGame/Lamborghini Murcielago LP670/Cache
+3D Models/System/Cache
+
+OpenGLDemo/debug
+OpenGLDemo/release
+
+OpenGLDemo/Makefile
+
+*.ilk
+*.pdb
+*.Debug
+*.Release
+
+*.blend
+*.blend1

@@ -1,0 +1,11 @@
+#version 130
+precision highp float;
+
+in vec3 vertex;
+
+uniform mat4 mod_view_proj_mat;
+
+void main()
+{
+    gl_Position = mod_view_proj_mat * vec4(vertex, 1.0);
+}

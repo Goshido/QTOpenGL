@@ -1,0 +1,29 @@
+#version 130
+precision highp float;
+
+smooth in vec3 v_normalView;
+smooth in vec3 v_velocityView;
+
+uniform vec4 albedo;
+uniform vec3 emission;
+uniform vec4 cookTorranceParams;    // x - roughness, y - ior, z - specular intensity, w - metallic
+
+out vec4 albedoTarget;
+out vec4 emissionTarget;
+out vec3 normalTarget;
+out vec4 cookTorranceParamsTarget;
+out vec4 velocityTarget;
+
+vec3 packNormal()
+{
+    return normalize(v_normalView) * 0.5 + 0.5;
+}
+
+void main()
+{
+    albedoTarget = albedo;
+    emissionTarget = vec4(emission, 0.0);
+    normalTarget = packNormal();
+    cookTorranceParamsTarget = cookTorranceParams;
+    velocityTarget = vec4(v_velocityView, 0.0);
+}

@@ -1,0 +1,50 @@
+#version 130
+precision highp float;
+
+#define TOTAL_SAMPLES 8
+#define INV_TOTAL_SAMPLES 0.125
+
+smooth in vec2 v_uv;
+
+uniform sampler2D imageSampler;
+uniform sampler2D velocitySampler;
+uniform sampler2D depthSampler;
+
+uniform vec4 params;   // x - inv screen width, y - inv screen height, z - blur strength, w - blur velocity mininum
+uniform mat4 inv_proj_mat;
+
+out vec4 fragmentColor;
+
+float getDepthView()
+{
+    vec4 locationCVV;
+    locationCVV.xy = gl_FragCoord * params.xy * 2.0 - 1.0;
+    locationCVV.z = texture(depthSampler, v_uv).r * 2.0 - 1.0;
+    locationCVV.w = 1.0;
+
+    vec4 homogeneousLocationView = inv_proj_mat * locationCVV;
+    return homogeneousLocationView.z / homogeneousLocationView.w;
+}
+
+void main()
+{
+    vec3 velocityView = texture(velocitySampler, v_uv).xyz;
+    float depthView = getDepthView();
+    float perspectiveCorrectedVelocityMagnitude = length(velocityView) / depthView;
+
+    if (perspectiveCorrectedVelocityMagnitude < params.w) {
+        fragmentColor = texture(imageSampler, v_uv);
+        return;
+    }
+
+    vec2 lookupStep = -params.z * (velocityView.xy / depthView);
+    vec2 lookupUV = v_uv;
+
+    vec3 colorSum = vec3(0.0, 0.0, 0.0);
+    for (int i = 0; i < TOTAL_SAMPLES; i++) {
+        colorSum += texture(imageSampler, lookupUV).rgb;
+        lookupUV += lookupStep;
+    }
+
+    fragmentColor = vec4(colorSum * INV_TOTAL_SAMPLES, 1.0);
+}
